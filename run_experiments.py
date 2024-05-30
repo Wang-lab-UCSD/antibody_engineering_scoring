@@ -4,10 +4,8 @@ import os
 import sys
 import argparse
 
-from antibody_scoring import data_processing as dataproc
 from antibody_scoring import data_retrieval as dataretr
-from antibody_scoring import xgboost_evals as xgb_eval
-from antibody_scoring import xgpr_evals as xgp_eval
+from antibody_scoring.engelhart_evals import engelhart_eval
 
 
 class ReconfigParser(argparse.ArgumentParser):
@@ -34,8 +32,8 @@ def get_raw_data(project_dir):
     """Retrieve data from links from which it was originally downloaded (for
     datasets which are not included)."""
     os.chdir(project_dir)
-    dataretr.retrieve_engelhart_dataset(project_dir)
-
+    #dataretr.retrieve_engelhart_dataset(project_dir)
+    dataretr.retrieve_desautels_dataset(project_dir)
 
 
 def main():
