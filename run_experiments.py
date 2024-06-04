@@ -24,6 +24,9 @@ def gen_arg_parser():
                 "the log files under results.")
     parser.add_argument("--retrieve_data", action="store_true",
             help="Retrieve the raw data from Zenodo and other resources")
+    parser.add_argument("--engelhart", action="store_true",
+            help="Run evals on the data from Engelhart et al. and write "
+                    "the results to file.")
     return parser
 
 
@@ -47,6 +50,9 @@ def main():
 
     if args.retrieve_data:
         get_raw_data(home_dir)
+
+    if args.engelhart:
+        engelhart_eval(home_dir)
 
 
 if __name__ == "__main__":
