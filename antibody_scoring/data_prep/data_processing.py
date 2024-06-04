@@ -5,6 +5,7 @@ import numpy as np
 from antpack import SingleChainAnnotator as SCA
 from sklearn.model_selection import train_test_split
 from ..constants import data_retrieval_constants as DRC
+from ..constants.seq_encoding_constants import DESAUTELS_VARIABLE_POSITIONS
 
 
 def preprocess_engelhart(project_dir, regression_only = False):
@@ -197,3 +198,25 @@ def preprocess_mason(project_dir, fraction = 0.49506):
     # test). This enables caller to select the training / test set itself without
     # any further modifications to this code.
     return Seq_Ag_data.complete["AASeq"].tolist(), Seq_Ag_data.complete["AgClass"].values
+
+
+
+def preprocess_desautels(project_dir):
+    """Preps the data for Desautels et al."""
+    raw_data = pd.read_csv(os.path.join(project_dir, "extracted_data", "desautels",
+        "biorxiv_paper", "Desautels_insilico_data.csv"))
+
+    # These are the same pred cols used by Singh et al.
+    pred_cols = ['FoldX_Average_Whole_Model_DDG', 'FoldX_Average_Interface_Only_DDG',
+            'Statium', 'Sum_of_Rosetta_Flex_single_point_mutations',
+            'Sum_of_Rosetta_Total_Energy_single_point_mutations']
+
+    yarr = raw_data[pred_cols].values.astype(np.float64)
+    unprepped_seqs = raw_data["Antibody_Sequence"].tolist()
+
+    # There are only certain positions in these antibodies which vary. We COULD feed the whole
+    # sequence into a convolution kernel, but it's much faster to just use the variable positions.
+    seqs = ["".join([unprepped_seq[i] for i in DESAUTELS_VARIABLE_POSITIONS])
+                for unprepped_seq in unprepped_seqs]
+
+    return seqs, yarr

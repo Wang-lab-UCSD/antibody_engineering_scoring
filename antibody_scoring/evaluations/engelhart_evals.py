@@ -19,78 +19,24 @@ def engelhart_eval(project_dir):
 def eval_group(project_dir, regression_only = False):
     """Performs the evaluations for a given setting of regression only as false or true."""
     pchem, ohenc, pfaenc = PChemPropEncoder(), OneHotEncoder(), PFAStandardEncoder()
-    fixed_len_seqs, yvalues, cdr_unaligned, cdr_slengths, seq_unaligned, \
-            seq_lengths = preprocess_engelhart(project_dir, regression_only)
+    fixed_len_seqs, yvalues, _, _, seq_unaligned, seq_lengths = \
+            preprocess_engelhart(project_dir, regression_only)
 
-    #xgboost_eval(project_dir, fixed_len_seqs, yvalues, pchem,
-    #        regression_only = True)
-    #xgpr_fastconv_eval(project_dir, cdr_unaligned, cdr_slengths, yvalues, ohenc, regression_only)
-    #xgpr_fastconv_eval(project_dir, cdr_unaligned, cdr_slengths, yvalues, pfaenc, regression_only)
+    xgboost_eval(project_dir, fixed_len_seqs, yvalues, pchem,
+            regression_only = True)
 
-    xgpr_conv1drbf_eval(project_dir, seq_unaligned, np.array(seq_lengths), yvalues, ohenc, regression_only)
-    xgpr_conv1drbf_eval(project_dir, seq_unaligned, np.array(seq_lengths), yvalues, pfaenc, regression_only)
-
-
-
-def xgpr_fastconv_eval(project_dir, cdr_unaligned, slengths, yvalues,
-        encoder, regression_only = False):
-    """Runs train-test split evaluations using a split ratio specific
-    to Barton et al. (to directly compare with that paper)."""
-    xvalues = [encoder.encode_variable_length(a) for a in cdr_unaligned]
-    fconv = FastConv1d(seq_width=21, device="gpu", random_seed=123,
-            conv_width=5, num_features=2048)
-
-    xvalues = [fconv.predict(x, s, chunk_size=1000) for (x,s) in zip(xvalues, slengths)]
-    xvalues = np.hstack(xvalues).astype(np.float32)
-
-    auc_roc_scores, auc_prc_scores, r2_scores, fit_times, mae_scores = [], [], [], [], []
-    if regression_only:
-        study_name = "deutschmann"
-    else:
-        study_name = "barton"
-
-    for i in range(5):
-        timestamp = time.time()
-        trainx, trainy, testx, testy = get_tt_split(xvalues, yvalues, i, study_name)
-
-        regdata = build_regression_dataset(trainx, trainy, chunk_size=2000)
-        xgp = xGPRegression(num_rffs = 2048, variance_rffs = 12, kernel_choice = "RBF",
-                kernel_settings = {"intercept":True}, device="gpu")
-
-        _ = xgp.tune_hyperparams_crude(regdata)
-        xgp.num_rffs = 4096
-
-        xgp.tune_hyperparams(regdata)
-        xgp.num_rffs = 8192
-        xgp.fit(regdata, suppress_var = True)
-        fit_times.append(time.time() - timestamp)
-
-        preds = xgp.predict(testx)
-        if regression_only:
-            r2_scores.append(r2_score(testy, preds))
-            mae_scores.append(np.mean(np.abs(testy - preds)))
-        else:
-            valcat = testy.copy()
-            valcat[valcat<=3]=0
-            valcat[valcat>3]=1
-            auc_roc_scores.append(roc_auc_score(valcat, preds))
-            auc_prc_scores.append(average_precision_score(valcat, preds))
-
-    if not regression_only:
-        write_res_to_file(project_dir, "barton", "xGPR_FastConv1d", type(encoder).__name__,
-            r2_scores, mae_scores, auc_roc_scores,
-            auc_prc_scores, fit_times)
-    else:
-        write_res_to_file(project_dir, "deutschmann", "xGPR_FastConv1d", type(encoder).__name__,
-            r2_scores, mae_scores, auc_roc_scores,
-            auc_prc_scores, fit_times)
+    xgpr_conv1drbf_eval(project_dir, seq_unaligned, np.array(seq_lengths),
+            yvalues, ohenc, regression_only)
+    xgpr_conv1drbf_eval(project_dir, seq_unaligned, np.array(seq_lengths),
+            yvalues, pfaenc, regression_only)
 
 
 
 def xgpr_conv1drbf_eval(project_dir, seq_unaligned, slengths, yvalues, encoder,
         regression_only = False):
-    """Runs train-test split evaluations using a split ratio specific
-    to Barton et al. (to directly compare with that paper)."""
+    """Runs train-test split evaluations using either regression only settings
+    (for comparison with Deutschmann et al) or classification (for comparison
+    with Barton et al)."""
     xvalues = encoder.encode_variable_length(seq_unaligned).astype(np.float32)
 
     auc_roc_scores, auc_prc_scores, r2_scores, fit_times, mae_scores = [], [], [], [], []
@@ -144,8 +90,9 @@ def xgpr_conv1drbf_eval(project_dir, seq_unaligned, slengths, yvalues, encoder,
 
 def xgboost_eval(project_dir, fixed_len_seqs, yvalues,
         encoder, regression_only = False):
-    """Runs train-test split evaluations using a split ratio
-    specific to Barton et al. (to directly compare with that paper)."""
+    """Runs train-test split evaluations using either regression only settings
+    (for comparison with Deutschmann et al) or classification (for comparison
+    with Barton et al)."""
     xvalues = encoder.encode_variable_length(fixed_len_seqs)
     xvalues = xvalues.reshape((xvalues.shape[0], xvalues.shape[1] * xvalues.shape[2]))
 

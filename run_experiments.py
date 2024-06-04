@@ -7,6 +7,7 @@ import argparse
 from antibody_scoring.data_prep import data_retrieval as dataretr
 from antibody_scoring.evaluations.engelhart_evals import engelhart_eval
 from antibody_scoring.evaluations.mason_evals import mason_eval
+from antibody_scoring.evaluations.desautels_evals import desautels_eval
 
 
 class ReconfigParser(argparse.ArgumentParser):
@@ -30,6 +31,9 @@ def gen_arg_parser():
                     "the results to file.")
     parser.add_argument("--mason", action="store_true",
             help="Run evals on the data from Mason et al. and write "
+                    "the results to file.")
+    parser.add_argument("--desautels", action="store_true",
+            help="Run evals on the data from Desautels et al. and write "
                     "the results to file.")
     return parser
 
@@ -60,6 +64,9 @@ def main():
 
     if args.mason:
         mason_eval(home_dir)
+
+    if args.desautels:
+        desautels_eval(home_dir)
 
 
 if __name__ == "__main__":

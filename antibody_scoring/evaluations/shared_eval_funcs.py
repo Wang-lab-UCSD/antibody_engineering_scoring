@@ -10,12 +10,14 @@ from xgboost import XGBRegressor, XGBClassifier
 
 def write_res_to_file(project_dir, dataset_name, model_type, encoding,
         r2_scores = [], mae_scores = [], auc_roc_scores = [],
-        auc_prc_scores = [], fit_times = []):
-    """Writes the result of an evaluation to file."""
+        auc_prc_scores = [], fit_times = [], spearman_scores = [],
+        train_percent = "NA"):
+    """Writes the result of an evaluation to file. It is designed to be flexible
+    enough to accommodate all the different metrics we will need to use."""
     output_fname = os.path.join(project_dir, "results", "evaluation_results.txt")
     if not os.path.exists(output_fname):
         with open(output_fname, "w+", encoding="utf-8") as fhandle:
-            fhandle.write("Dataset,Model,Encoding,R^2,MAE,AUC_ROC,AUC_PRC,Fit_time\n")
+            fhandle.write("Dataset,Model,Encoding,R^2,MAE,AUC_ROC,AUC_PRC,Spearmanr,Fit_time,Train_percent\n")
 
     with open(output_fname, "a", encoding="utf-8") as fhandle:
         fhandle.write(f"{dataset_name},{model_type},{encoding},"
@@ -23,7 +25,9 @@ def write_res_to_file(project_dir, dataset_name, model_type, encoding,
                 f"{convert_scores_to_stats(mae_scores)},"
                 f"{convert_scores_to_stats(auc_roc_scores)},"
                 f"{convert_scores_to_stats(auc_prc_scores)},"
-                f"{convert_scores_to_stats(fit_times)}\n")
+                f"{convert_scores_to_stats(spearman_scores)},"
+                f"{convert_scores_to_stats(fit_times)},"
+                f"{train_percent}\n")
 
 
 
