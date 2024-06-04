@@ -1,11 +1,11 @@
 """Contains code for evaluating xgboost on the Mason dataset."""
 import time
 import optuna
-from sklearn.metrics import r2_score, roc_auc_score, average_precision_score
+from sklearn.metrics import roc_auc_score, average_precision_score
 from xgboost import XGBClassifier
 import numpy as np
-from .data_processing import preprocess_mason
-from .seq_encoder_functions import OneHotEncoder, PChemPropEncoder
+from ..data_prep.data_processing import preprocess_mason
+from ..data_prep.seq_encoder_functions import PChemPropEncoder
 from .shared_eval_funcs import optuna_classification, write_res_to_file
 
 

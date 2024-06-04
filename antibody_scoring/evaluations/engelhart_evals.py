@@ -5,8 +5,8 @@ from sklearn.metrics import r2_score, roc_auc_score, average_precision_score
 from xgboost import XGBRegressor
 from xGPR import xGPRegression, build_regression_dataset, FastConv1d
 import numpy as np
-from .data_processing import preprocess_engelhart
-from .seq_encoder_functions import OneHotEncoder, PFAStandardEncoder, PChemPropEncoder
+from ..data_prep.data_processing import preprocess_engelhart
+from ..data_prep.seq_encoder_functions import OneHotEncoder, PFAStandardEncoder, PChemPropEncoder
 from .shared_eval_funcs import optuna_regression, write_res_to_file
 
 

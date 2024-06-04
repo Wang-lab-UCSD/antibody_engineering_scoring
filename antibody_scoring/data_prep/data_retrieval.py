@@ -5,7 +5,7 @@ import zipfile
 import wget
 import subprocess
 
-from .constants import data_retrieval_constants as DRC
+from ..constants import data_retrieval_constants as DRC
 
 
 

@@ -4,9 +4,9 @@ import os
 import sys
 import argparse
 
-from antibody_scoring import data_retrieval as dataretr
-from antibody_scoring.engelhart_evals import engelhart_eval
-from antibody_scoring.mason_evals import mason_eval
+from antibody_scoring.data_prep import data_retrieval as dataretr
+from antibody_scoring.evaluations.engelhart_evals import engelhart_eval
+from antibody_scoring.evaluations.mason_evals import mason_eval
 
 
 class ReconfigParser(argparse.ArgumentParser):

@@ -4,7 +4,7 @@ import pandas as pd
 import numpy as np
 from antpack import SingleChainAnnotator as SCA
 from sklearn.model_selection import train_test_split
-from .constants import data_retrieval_constants as DRC
+from ..constants import data_retrieval_constants as DRC
 
 
 def preprocess_engelhart(project_dir, regression_only = False):

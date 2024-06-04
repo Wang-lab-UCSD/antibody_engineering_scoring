@@ -4,8 +4,8 @@ import os
 import numpy as np
 from scipy.stats import norm
 from sklearn.metrics import roc_auc_score
-from xgboost import XGBRegressor, XGBClassifier
 from sklearn.model_selection import KFold
+from xgboost import XGBRegressor, XGBClassifier
 
 
 def write_res_to_file(project_dir, dataset_name, model_type, encoding,
