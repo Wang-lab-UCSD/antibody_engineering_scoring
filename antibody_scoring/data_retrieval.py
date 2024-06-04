@@ -1,7 +1,9 @@
 """Contains tools for retrieving the key datasets used for benchmarking."""
 import os
+import shutil
 import zipfile
 import wget
+import subprocess
 
 from .constants import data_retrieval_constants as DRC
 
@@ -41,3 +43,33 @@ def retrieve_desautels_dataset(project_dir):
     os.chdir(project_dir)
     os.remove(filename)
 
+
+def retrieve_mason_dataset(project_dir):
+    """Retrieves the Mason et al. dataset."""
+    current_dir = os.getcwd()
+    os.chdir(project_dir)
+
+    os.chdir("extracted_data")
+    if "mason" not in os.listdir():
+        os.mkdir("mason")
+    os.chdir("..")
+
+    # We download the whole git repo which is not ideal because we really just want the two
+    # files, but there isn't a...great...alternative to this -- (there are some not-great
+    # alternatives). To cleanup, we remove all the unnecessary files once we're done.
+    res = subprocess.Popen(["git", "clone", "--depth=1", "https://github.com/dahjan/DMS_opt"])
+    output, err = res.communicate()
+
+    if err:
+        raise RuntimeError("Failed to download git repo DMS_opt. Could not process Mason dataset.")
+
+    os.chdir(os.path.join("DMS_opt", "data"))
+    shutil.copy("mHER_H3_AgNeg.csv", os.path.join(project_dir, "extracted_data",
+        "mason", "mHER_H3_AgNeg.csv"))
+    shutil.copy("mHER_H3_AgPos.csv", os.path.join(project_dir, "extracted_data",
+        "mason", "mHER_H3_AgPos.csv"))
+
+    os.chdir(project_dir)
+
+    shutil.rmtree("DMS_opt")
+    os.chdir(current_dir)

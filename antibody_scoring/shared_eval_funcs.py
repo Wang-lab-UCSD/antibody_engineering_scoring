@@ -3,7 +3,8 @@ all of the eval modules."""
 import os
 import numpy as np
 from scipy.stats import norm
-from xgboost import XGBRegressor
+from sklearn.metrics import roc_auc_score
+from xgboost import XGBRegressor, XGBClassifier
 from sklearn.model_selection import KFold
 
 
@@ -66,6 +67,40 @@ def optuna_regression(trial, trainx, trainy):
         optuna_model.fit(subtrainx, subtrainy)
         y_pred = optuna_model.predict(subvalidx)
         score = np.mean(np.abs(subvalidy - y_pred))
+        results.append(score)
+
+    return np.mean(results)
+
+
+
+def optuna_classification(trial, trainx, trainy):
+    kf = KFold(n_splits=5)
+
+    kf.get_n_splits(trainx)
+
+    params = {
+            'max_depth': trial.suggest_int('max_depth', 2, 6),
+            'learning_rate': trial.suggest_float('learning_rate', 0.01, 0.5, log=True),
+            'n_estimators': trial.suggest_int('n_estimators', 50, 500),
+            'min_child_weight': trial.suggest_int('min_child_weight', 0.1, 10),
+            'gamma': trial.suggest_float('gamma', 1e-8, 1.0, log=True),
+            'subsample': trial.suggest_float('subsample', 0.5, 1.0, log=True),
+            'colsample_bytree': trial.suggest_float('colsample_bytree', 0.05, 1.0, log=True),
+            'reg_alpha': trial.suggest_float('reg_alpha', 1e-8, 1.0, log=True),
+            'reg_lambda': trial.suggest_float('reg_lambda', 1e-8, 1.0, log=True),
+            'eval_metric': 'mlogloss',
+            'device': "cuda"
+    }
+
+    optuna_model = XGBClassifier(**params)
+    results = []
+    for (train_index, test_index) in kf.split(trainx):
+        subtrainx, subvalidx = trainx[train_index,...], trainx[test_index,...]
+        subtrainy, subvalidy = trainy[train_index], trainy[test_index]
+
+        optuna_model.fit(subtrainx, subtrainy)
+        y_pred = optuna_model.predict_proba(subvalidx)[:,1]
+        score = roc_auc_score(subvalidy, y_pred)
         results.append(score)
 
     return np.mean(results)

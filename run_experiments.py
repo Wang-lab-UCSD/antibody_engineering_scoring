@@ -6,6 +6,7 @@ import argparse
 
 from antibody_scoring import data_retrieval as dataretr
 from antibody_scoring.engelhart_evals import engelhart_eval
+from antibody_scoring.mason_evals import mason_eval
 
 
 class ReconfigParser(argparse.ArgumentParser):
@@ -27,6 +28,9 @@ def gen_arg_parser():
     parser.add_argument("--engelhart", action="store_true",
             help="Run evals on the data from Engelhart et al. and write "
                     "the results to file.")
+    parser.add_argument("--mason", action="store_true",
+            help="Run evals on the data from Mason et al. and write "
+                    "the results to file.")
     return parser
 
 
@@ -36,8 +40,8 @@ def get_raw_data(project_dir):
     datasets which are not included)."""
     os.chdir(project_dir)
     #dataretr.retrieve_engelhart_dataset(project_dir)
-    dataretr.retrieve_desautels_dataset(project_dir)
-
+    #dataretr.retrieve_desautels_dataset(project_dir)
+    dataretr.retrieve_mason_dataset(project_dir)
 
 def main():
     """Entry point for all dataset building tasks."""
@@ -53,6 +57,9 @@ def main():
 
     if args.engelhart:
         engelhart_eval(home_dir)
+
+    if args.mason:
+        mason_eval(home_dir)
 
 
 if __name__ == "__main__":
