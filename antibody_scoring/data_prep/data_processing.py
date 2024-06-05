@@ -211,6 +211,10 @@ def preprocess_desautels(project_dir):
             'Statium', 'Sum_of_Rosetta_Flex_single_point_mutations',
             'Sum_of_Rosetta_Total_Energy_single_point_mutations']
 
+    retained_cols = ["Antibody_Sequence"] + pred_cols
+    raw_data = raw_data[retained_cols].copy()
+    raw_data = raw_data.groupby('Antibody_Sequence').mean().reset_index()
+
     yarr = raw_data[pred_cols].values.astype(np.float64)
     unprepped_seqs = raw_data["Antibody_Sequence"].tolist()
 

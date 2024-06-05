@@ -3,7 +3,7 @@ import time
 import optuna
 from sklearn.metrics import r2_score, roc_auc_score, average_precision_score
 from xgboost import XGBRegressor
-from xGPR import xGPRegression, build_regression_dataset, FastConv1d
+from xGPR import xGPRegression, build_regression_dataset
 import numpy as np
 from ..data_prep.data_processing import preprocess_engelhart
 from ..data_prep.seq_encoder_functions import OneHotEncoder, PFAStandardEncoder, PChemPropEncoder
