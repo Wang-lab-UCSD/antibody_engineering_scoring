@@ -24,7 +24,7 @@ def xgboost_eval(project_dir, fixed_len_seqs, yvalues,
     xvalues = encoder.encode_variable_length(fixed_len_seqs)
     xvalues = xvalues.reshape((xvalues.shape[0], xvalues.shape[1] * xvalues.shape[2]))
 
-    auc_roc_scores, auc_prc_scores, r2_scores, fit_times, mae_scores = [], [], [], [], []
+    auc_roc_scores, auc_prc_scores, fit_times = [], [], []
 
     for i in range(5):
         timestamp = time.time()
@@ -46,8 +46,8 @@ def xgboost_eval(project_dir, fixed_len_seqs, yvalues,
         auc_prc_scores.append(average_precision_score(testy, preds))
 
     write_res_to_file(project_dir, "mason", "XGBoost", type(encoder).__name__,
-            r2_scores, mae_scores, auc_roc_scores,
-            auc_prc_scores, fit_times)
+            auc_roc_scores = auc_roc_scores, auc_prc_scores = auc_prc_scores,
+            fit_times = fit_times)
 
 
 def get_tt_split(xdata, ydata, random_seed):

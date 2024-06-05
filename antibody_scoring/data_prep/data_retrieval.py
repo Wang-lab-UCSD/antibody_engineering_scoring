@@ -89,3 +89,15 @@ def retrieve_cognano_dataset(project_dir):
     os.rename(test_filename, "test.csv")
 
     os.chdir(current_dir)
+
+
+def retrieve_il6_dataset(project_dir):
+    """Retrieves the IL-6 dataset."""
+    current_dir = os.getcwd()
+    os.chdir(os.path.join(project_dir, "extracted_data"))
+    if "il6" not in os.listdir():
+        os.mkdir("il6")
+
+    os.chdir("il6")
+    _ = wget.download(DRC.IL6_DATASET)
+    os.chdir(current_dir)

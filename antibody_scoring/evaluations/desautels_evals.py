@@ -1,4 +1,4 @@
-"""Contains code for evaluating xgboost on the Desautels dataset."""
+"""Contains code for evaluating xgboost and xGPR on the Desautels dataset."""
 import time
 import optuna
 from scipy.stats import spearmanr
@@ -11,17 +11,17 @@ from .shared_eval_funcs import optuna_regression, write_res_to_file
 
 
 def desautels_eval(project_dir):
-    """Runs the evals for the Desautels dataset for xgboost."""
+    """Runs the evals for the Desautels dataset."""
     pchem_prop, ohenc, pfaenc = PChemPropEncoder(), OneHotEncoder(), PFAStandardEncoder()
     seqs, yvalues = preprocess_desautels(project_dir)
 
-    #xgboost_eval(project_dir, seqs, yvalues, pchem_prop)
-    #xgpr_rbf_eval(project_dir, seqs, yvalues, ohenc)
-    #xgpr_rbf_eval(project_dir, seqs, yvalues, pfaenc)
+    xgboost_eval(project_dir, seqs, yvalues, pchem_prop)
+    xgpr_rbf_eval(project_dir, seqs, yvalues, ohenc)
+    xgpr_rbf_eval(project_dir, seqs, yvalues, pfaenc)
 
-    #xgboost_eval(project_dir, seqs, yvalues, pchem_prop, 0.05)
-    #xgpr_rbf_eval(project_dir, seqs, yvalues, ohenc, 0.05)
-    #xgpr_rbf_eval(project_dir, seqs, yvalues, pfaenc, 0.05)
+    xgboost_eval(project_dir, seqs, yvalues, pchem_prop, 0.05)
+    xgpr_rbf_eval(project_dir, seqs, yvalues, ohenc, 0.05)
+    xgpr_rbf_eval(project_dir, seqs, yvalues, pfaenc, 0.05)
 
     xgboost_eval(project_dir, seqs, yvalues, pchem_prop, 0.01)
     xgpr_rbf_eval(project_dir, seqs, yvalues, ohenc, 0.01)

@@ -3,9 +3,11 @@ import os
 import pandas as pd
 import numpy as np
 from antpack import SingleChainAnnotator as SCA
+from antpack import VJGeneTool as VJG
 from sklearn.model_selection import train_test_split
 from ..constants import data_retrieval_constants as DRC
 from ..constants.seq_encoding_constants import DESAUTELS_VARIABLE_POSITIONS
+from ..constants.seq_encoding_constants import IL6_ANTIGEN_VARIABLE_POSITIONS
 
 
 def preprocess_engelhart(project_dir, regression_only = False):
@@ -224,3 +226,140 @@ def preprocess_desautels(project_dir):
                 for unprepped_seq in unprepped_seqs]
 
     return seqs, yarr
+
+
+def preprocess_cognano(project_dir):
+    """Preprocess the Cognano dataset."""
+    test_data = pd.read_csv(os.path.join(project_dir, "extracted_data",
+        "cognano", "test.csv"))
+    train_data = pd.read_csv(os.path.join(project_dir, "extracted_data",
+        "cognano", "train.csv"))
+
+    datagroups = [["train", train_data], ["test", test_data]]
+    sca = SCA(chains=["H"], scheme="imgt")
+
+    observed_positions, observed_antigens = set(), set()
+
+    for i, datagroup in enumerate(datagroups):
+        numberings = []
+        for seq, ag in zip(datagroup[1]["VHH_sequence"].tolist(),
+                datagroup[1]["Ag_label"].tolist()):
+            numbering, _, _, _ = sca.analyze_seq(seq)
+            observed_positions.update(numbering)
+            observed_antigens.add(ag)
+            numberings.append(numbering)
+
+        datagroups[i].append(numberings)
+
+    sorted_codes = sca.sort_position_codes([k for k in list(observed_positions) if
+        k != "-"], scheme="imgt")
+    sorted_codes = {k:i for i, k in enumerate(sorted_codes)}
+
+    sorted_ags = sorted(list(observed_antigens))
+    sorted_ags = {k:i for i, k in enumerate(sorted_ags)}
+
+    prepped_sets = []
+
+    for i, datagroup in enumerate(datagroups):
+        prepped_seqs, prepped_antigens = [], []
+        for seq, numbering, antigen in zip(datagroup[1]["VHH_sequence"].tolist(),
+                datagroup[2], datagroup[1]["Ag_label"].tolist()):
+            prepped_seq = ["-" for k in sorted_codes]
+            for n, letter in zip(numbering, seq):
+                if n == "-":
+                    continue
+                prepped_seq[sorted_codes[n]] = letter
+            prepped_seqs.append("".join(prepped_seq))
+            ag_encoded = np.zeros((len(sorted_ags)), dtype=np.uint8)
+            ag_encoded[sorted_ags[antigen]] = 1
+            prepped_antigens.append(ag_encoded)
+
+        prepped_sets.append(  (prepped_seqs, np.stack(prepped_antigens),
+            datagroup[1]["label"].tolist(), datagroup[0])  )
+
+    return prepped_sets
+
+
+def preprocess_il6(project_dir):
+    """Preps the IL6 data for analysis. Barton et al. used a strangely complicated
+    approach to preparing the data, including discarding any sequences with low
+    percent identity to a human V-gene (?). We follow their procedure here for ease
+    of comparison, although their procedure is probably not the best or most
+    straightforward way to process this dataset."""
+    raw_data = pd.read_csv(os.path.join(project_dir, "extracted_data",
+        "il6", "il6_aai_dataset.csv"))
+
+    sca = SCA(chains=["H"], scheme="imgt")
+
+    observed_positions, numberings = set(), []
+
+    numberings = []
+    for seq in raw_data["VHH_sequence"].tolist():
+        numbering, _, _, _ = sca.analyze_seq(seq)
+        observed_positions.update(numbering)
+        numberings.append(numbering)
+
+    sorted_codes = sca.sort_position_codes([k for k in list(observed_positions) if
+        k != "-"], scheme="imgt")
+    sorted_codes = {k:i for i, k in enumerate(sorted_codes)}
+
+    sorted_ag_labels = np.sort(np.unique(raw_data["Ag_label"].values))
+    sorted_ag_labels = {k:i for i, k in enumerate(sorted_ag_labels.tolist())}
+
+    unique_ag_seqs = {}
+    for ag_label, ag_seq in zip(raw_data["Ag_label"].tolist(), raw_data["Ag_sequence"].tolist()):
+        if ag_label not in unique_ag_seqs:
+            prepped_ag = "".join([ag_seq[k] for k in IL6_ANTIGEN_VARIABLE_POSITIONS])
+            unique_ag_seqs[ag_label] = prepped_ag
+
+    prepped_seqs = {}
+    vj_tool = VJG()
+
+    for seq, numbering, label, ag_label in zip(raw_data["VHH_sequence"].tolist(),
+                numberings, raw_data["label"].tolist(), raw_data["Ag_label"].tolist()):
+
+        _, _, vident, _ = vj_tool.assign_numbered_sequence(seq, numbering, "H")
+        if vident < 0.75:
+            continue
+
+        prepped_seq = ["-" for k in sorted_codes]
+        for n, letter in zip(numbering, seq):
+            if n == "-":
+                continue
+            prepped_seq[sorted_codes[n]] = letter
+
+        prepped_seq = "".join(prepped_seq)
+
+        if prepped_seq not in prepped_seqs:
+            prepped_seqs[prepped_seq] = np.zeros((len(sorted_ag_labels)), dtype=np.uint8)
+
+        if label == 1:
+            prepped_seqs[prepped_seq][sorted_ag_labels[ag_label]] = 1
+        elif label == 0:
+            prepped_seqs[prepped_seq][sorted_ag_labels[ag_label]] = 2
+
+    del raw_data
+
+    # The next part of the filtering process used by Barton et al. is quite
+    # strange -- they retain only sequences that bind one variant or no
+    # variants, but remove sequences that bind one variant and are confirmed
+    # not to bind any others (?). We duplicate this procedure here although it
+    # is not clear to us why this was adopted.
+    filtered_seqs = {}
+
+    for prepped_seq, allocation_arr in prepped_seqs.items():
+        n_binders = (allocation_arr == 1).sum()
+        if n_binders > 1:
+            continue
+
+        confirmed_nonbinders = (allocation_arr == 2).sum()
+        filtered_arr = allocation_arr.copy()
+        filtered_arr[filtered_arr==2] = 0
+
+        if confirmed_nonbinders == (allocation_arr.shape[0] - 1) and \
+                n_binders == 1:
+            filtered_arr[:] = 0
+
+        filtered_seqs[prepped_seq] = filtered_arr
+
+    return filtered_seqs

@@ -6,3 +6,5 @@ LOCAL_ENGELHART_PATH = ["mit-ll-AlphaSeq_Antibody_Dataset-18c7c07","MITLL_AAlpha
 
 DESAUTELS_DATASET = "https://www.biorxiv.org/content/biorxiv/early/2020/04/10/2020.04.03.024885/DC1/embed/media-1.zip?download=true"
 LOCAL_DESAUTELS_PATH = ["biorxiv_paper"]
+
+IL6_DATASET = "https://zenodo.org/records/7935862/files/il6_aai_dataset.csv?download=1"
