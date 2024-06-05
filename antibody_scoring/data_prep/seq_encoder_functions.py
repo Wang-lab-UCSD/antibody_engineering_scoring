@@ -1,7 +1,5 @@
 """Contains tools for encoding the input sequences."""
 import numpy as np
-from xGPR import KernelFGen
-
 from ..constants import seq_encoding_constants
 from ..protein_tools.pfasum_matrices import PFASUM90_standardized
 
