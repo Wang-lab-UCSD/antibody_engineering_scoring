@@ -45,7 +45,8 @@ def get_raw_data(project_dir):
     os.chdir(project_dir)
     #dataretr.retrieve_engelhart_dataset(project_dir)
     #dataretr.retrieve_desautels_dataset(project_dir)
-    dataretr.retrieve_mason_dataset(project_dir)
+    #dataretr.retrieve_mason_dataset(project_dir)
+    dataretr.retrieve_cognano_dataset(project_dir)
 
 def main():
     """Entry point for all dataset building tasks."""

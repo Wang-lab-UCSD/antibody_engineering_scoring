@@ -73,3 +73,19 @@ def retrieve_mason_dataset(project_dir):
 
     shutil.rmtree("DMS_opt")
     os.chdir(current_dir)
+
+
+def retrieve_cognano_dataset(project_dir):
+    """Retrieves the Cognano dataset."""
+    current_dir = os.getcwd()
+    os.chdir(os.path.join(project_dir, "extracted_data"))
+    if "cognano" not in os.listdir():
+        os.mkdir("cognano")
+
+    os.chdir("cognano")
+    train_filename = wget.download("https://huggingface.co/datasets/COGNANO/AVIDa-SARS-CoV-2/resolve/main/train.csv?download=true")
+    test_filename = wget.download("https://huggingface.co/datasets/COGNANO/AVIDa-SARS-CoV-2/resolve/main/test.csv?download=true")
+    os.rename(train_filename, "train.csv")
+    os.rename(test_filename, "test.csv")
+
+    os.chdir(current_dir)
