@@ -87,8 +87,9 @@ def build_traintest_set(filtered_data, random_seed, num_desired,
 
     all_y = np.array(retained_labels)
     all_x = encoder.encode_variable_length(retained_seqs)
-    all_x = all_x.reshape((all_x.shape[0], all_x.shape[1] *
-        all_x.shape[2]))
+    if len(all_x.shape) > 2:
+        all_x = all_x.reshape((all_x.shape[0], all_x.shape[1] *
+            all_x.shape[2]))
 
     cutoff_val, cutoff_test = int(0.8 * num_desired), \
             int(0.9 * num_desired)

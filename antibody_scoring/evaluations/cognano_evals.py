@@ -21,13 +21,15 @@ def cognano_eval(project_dir):
 def xgboost_eval(project_dir, train_data, test_data, encoder):
     """Runs train-test split evaluations."""
     trainx = encoder.encode_variable_length(train_data[0])
-    trainx = trainx.reshape((trainx.shape[0], trainx.shape[1] *
-        trainx.shape[2]))
+    if len(trainx.shape) > 2:
+        trainx = trainx.reshape((trainx.shape[0], trainx.shape[1] *
+            trainx.shape[2]))
     trainx = np.hstack([trainx, train_data[1].astype(np.float32)])
 
     testx = encoder.encode_variable_length(test_data[0])
-    testx = testx.reshape((testx.shape[0], testx.shape[1] *
-        testx.shape[2]))
+    if len(testx.shape) > 2:
+        testx = testx.reshape((testx.shape[0], testx.shape[1] *
+            testx.shape[2]))
     testx = np.hstack([testx, test_data[1].astype(np.float32)])
 
     trainy, testy = np.array(train_data[2]), np.array(test_data[2])
