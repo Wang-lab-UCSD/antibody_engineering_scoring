@@ -2,7 +2,7 @@
 import time
 import random
 import optuna
-from sklearn.metrics import average_precision_score
+from sklearn.metrics import average_precision_score, roc_auc_score
 from xgboost import XGBClassifier
 import numpy as np
 from ..data_prep.data_processing import preprocess_il6
@@ -21,7 +21,7 @@ def il6_eval(project_dir):
 def xgboost_eval(project_dir, filtered_seqs, encoder):
     """Runs train-test split evaluations."""
 
-    fit_times, prc_scores = [], []
+    fit_times, prc_scores, auc_roc_scores = [], [], []
 
     for i in range(5):
         trainx, testx, trainy, testy = build_traintest_set(filtered_seqs, i,
@@ -43,11 +43,13 @@ def xgboost_eval(project_dir, filtered_seqs, encoder):
         probs = xgboost_model.predict_proba(testx)
 
         prc_scores.append(average_precision_score(testy, probs[:,1]))
+        auc_roc_scores.append(roc_auc_score(testy, probs[:,1]))
 
         print(f"****\n{prc_scores[-1]}\n******")
 
     write_res_to_file(project_dir, "IL6", "XGBoost", type(encoder).__name__,
-            fit_times = fit_times, auc_prc_scores = prc_scores)
+            fit_times = fit_times, auc_prc_scores = prc_scores,
+            auc_roc_scores = auc_roc_scores)
 
 
 def build_traintest_set(filtered_data, random_seed, num_desired,

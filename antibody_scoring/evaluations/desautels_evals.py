@@ -15,17 +15,10 @@ def desautels_eval(project_dir):
     pchem_prop, ohenc, pfaenc = PChemPropEncoder(), OneHotEncoder(), PFAStandardEncoder()
     seqs, yvalues = preprocess_desautels(project_dir)
 
-    xgboost_eval(project_dir, seqs, yvalues, pchem_prop)
-    xgpr_rbf_eval(project_dir, seqs, yvalues, ohenc)
-    xgpr_rbf_eval(project_dir, seqs, yvalues, pfaenc)
-
-    xgboost_eval(project_dir, seqs, yvalues, pchem_prop, 0.05)
-    xgpr_rbf_eval(project_dir, seqs, yvalues, ohenc, 0.05)
-    xgpr_rbf_eval(project_dir, seqs, yvalues, pfaenc, 0.05)
-
-    xgboost_eval(project_dir, seqs, yvalues, pchem_prop, 0.01)
-    xgpr_rbf_eval(project_dir, seqs, yvalues, ohenc, 0.01)
-    xgpr_rbf_eval(project_dir, seqs, yvalues, pfaenc, 0.01)
+    for train_fraction in [0.2, 0.05, 0.01, 0.005]:
+        xgboost_eval(project_dir, seqs, yvalues, pchem_prop, train_fraction)
+        xgpr_rbf_eval(project_dir, seqs, yvalues, ohenc, train_fraction)
+        xgpr_rbf_eval(project_dir, seqs, yvalues, pfaenc, train_fraction)
 
 
 
