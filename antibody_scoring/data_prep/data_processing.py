@@ -81,26 +81,26 @@ def preprocess_engelhart(project_dir, regression_only = False):
     full_length = sum([len(d) for (_, d) in expected_positions.items()])
 
     net_length = 0
-    encoded_seqs = [["-" for k in range(full_length)] for s in raw_data["Sequence"].tolist()]
+    aligned_seqs = [["-" for k in range(full_length)] for s in raw_data["Sequence"].tolist()]
 
     for j, cdr in enumerate(cdr_list):
         seqs = raw_data[cdr].tolist()
         seq_idx = {c:(i+net_length) for i, c in enumerate(expected_positions[cdr])}
 
-        for seq, encoded_seq,numbering in zip(seqs, encoded_seqs, cdr_numbering[j]):
+        for seq, encoded_seq,numbering in zip(seqs, aligned_seqs, cdr_numbering[j]):
             for letter, pos in zip(seq, numbering):
                 encoded_seq[seq_idx[pos]] = letter
 
         net_length += len(seq_idx)
 
-    encoded_seqs = ["".join(s) for s in encoded_seqs]
+    aligned_seqs = ["".join(s) for s in aligned_seqs]
 
     yvalues = raw_data["Pred_affinity"].values.astype(np.float64)
 
     seq_unaligned = raw_data["Sequence"].tolist()
     seq_slengths = [len(s) for s in seq_unaligned]
 
-    return encoded_seqs, yvalues, cdr_unaligned, cdr_slengths, \
+    return aligned_seqs, yvalues, cdr_unaligned, cdr_slengths, \
             seq_unaligned, seq_slengths
 
 

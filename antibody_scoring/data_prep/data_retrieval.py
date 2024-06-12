@@ -50,8 +50,7 @@ def retrieve_mason_dataset(project_dir):
     os.chdir(project_dir)
 
     os.chdir("extracted_data")
-    if "mason" not in os.listdir():
-        os.mkdir("mason")
+    os.makedirs("mason", exist_ok=True)
     os.chdir("..")
 
     # We download the whole git repo which is not ideal because we really just want the two
@@ -79,8 +78,7 @@ def retrieve_cognano_dataset(project_dir):
     """Retrieves the Cognano dataset."""
     current_dir = os.getcwd()
     os.chdir(os.path.join(project_dir, "extracted_data"))
-    if "cognano" not in os.listdir():
-        os.mkdir("cognano")
+    os.makedirs("cognano", exist_ok=True)
 
     os.chdir("cognano")
     train_filename = wget.download("https://huggingface.co/datasets/COGNANO/AVIDa-SARS-CoV-2/resolve/main/train.csv?download=true")
@@ -95,9 +93,27 @@ def retrieve_il6_dataset(project_dir):
     """Retrieves the IL-6 dataset."""
     current_dir = os.getcwd()
     os.chdir(os.path.join(project_dir, "extracted_data"))
-    if "il6" not in os.listdir():
-        os.mkdir("il6")
-
+    os.makedirs("il6", exist_ok=True)
     os.chdir("il6")
     _ = wget.download(DRC.IL6_DATASET)
+    os.chdir(current_dir)
+
+
+def retrieve_protein_gym_dms_substitutions(project_dir):
+    """Retrieves the dms substitutions dataset from protein gym."""
+    current_dir = os.getcwd()
+    filename = wget.download(DRC.PGYM_DMS_SUBS)
+    with zipfile.ZipFile(filename, 'r') as zip_ref:
+        zip_ref.extractall(os.path.join(project_dir, "extracted_data", "protein_gym_dms_subs"))
+    os.remove(filename)
+    os.chdir(current_dir)
+
+
+def retrieve_protein_gym_dms_indels(project_dir):
+    """Retrieves the dms substitutions dataset from protein gym."""
+    current_dir = os.getcwd()
+    filename = wget.download(DRC.PGYM_DMS_INDELS)
+    with zipfile.ZipFile(filename, 'r') as zip_ref:
+        zip_ref.extractall(os.path.join(project_dir, "extracted_data", "protein_gym_dms_indels"))
+    os.remove(filename)
     os.chdir(current_dir)

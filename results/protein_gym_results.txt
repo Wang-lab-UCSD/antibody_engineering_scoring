@@ -1,0 +1,5 @@
+Assay_ID,Dataset_Type,Split_Type,Model,Encoding,Spearman_fitness,Std_dev_Spearman_fitness,Average_fit_time
+VKOR1_HUMAN_Chiasson_2020_activity,dms_subs,random,XGBoost,PChemPropEncoder,0.2778553101900144,0.058986267512068306,38.83243827819824
+
+VKOR1_HUMAN_Chiasson_2020_activity,dms_subs,random,xGPR_RBF,OneHotEncoder,0.25992973437942984,0.07793045206160361,19.301575088500975
+VKOR1_HUMAN_Chiasson_2020_activity,dms_subs,random,xGPR_Conv1dRBF,OneHotEncoder,0.3490303646027252,0.09158201857298295,18.017222309112547

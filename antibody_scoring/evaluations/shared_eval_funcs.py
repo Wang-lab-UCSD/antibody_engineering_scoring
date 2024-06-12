@@ -2,7 +2,7 @@
 all of the eval modules."""
 import os
 import numpy as np
-from scipy.stats import norm
+from scipy.stats import norm, spearmanr
 from sklearn.metrics import roc_auc_score, f1_score, average_precision_score
 from sklearn.model_selection import KFold
 from xgboost import XGBRegressor, XGBClassifier
@@ -12,8 +12,9 @@ def write_res_to_file(project_dir, dataset_name, model_type, encoding,
         r2_scores = [], auc_roc_scores = [], auc_prc_scores = [], fit_times = [],
         spearman_scores = [], train_percent = "NA", precision_scores = [],
         recall_scores = [], f1_scores = [], accuracy_scores = []):
-    """Writes the result of an evaluation to file. It is designed to be flexible
-    enough to accommodate all the different metrics we will need to use."""
+    """Writes the result of an evaluation to file, accommodating all
+    the different metrics we will need to use, some of which are only needed
+    for certain datasets."""
     output_fname = os.path.join(project_dir, "results", "evaluation_results.txt")
     if not os.path.exists(output_fname):
         with open(output_fname, "w+", encoding="utf-8") as fhandle:
@@ -51,8 +52,9 @@ def convert_scores_to_stats(scores):
 
 
 
-def optuna_regression(trial, trainx, trainy):
-    """Regression objective for Optuna tuning. Used to minimize MAE."""
+def optuna_regression(trial, trainx, trainy, target="mae",
+        min_colsample_bound = 0.05):
+    """Regression objective for Optuna tuning."""
     kf = KFold(n_splits=5)
 
     kf.get_n_splits(trainx)
@@ -64,7 +66,8 @@ def optuna_regression(trial, trainx, trainy):
             'min_child_weight': trial.suggest_int('min_child_weight', 0.1, 10),
             'gamma': trial.suggest_float('gamma', 1e-8, 1.0, log=True),
             'subsample': trial.suggest_float('subsample', 0.5, 1.0, log=True),
-            'colsample_bytree': trial.suggest_float('colsample_bytree', 0.05, 1.0, log=True),
+            'colsample_bytree': trial.suggest_float('colsample_bytree', min_colsample_bound,
+                1.0, log=True),
             'reg_alpha': trial.suggest_float('reg_alpha', 1e-8, 1.0, log=True),
             'reg_lambda': trial.suggest_float('reg_lambda', 1e-8, 1.0, log=True),
             'eval_metric': 'mlogloss',
@@ -79,7 +82,13 @@ def optuna_regression(trial, trainx, trainy):
 
         optuna_model.fit(subtrainx, subtrainy)
         y_pred = optuna_model.predict(subvalidx)
-        score = np.mean(np.abs(subvalidy - y_pred))
+        if target == "mae":
+            score = np.mean(np.abs(subvalidy - y_pred))
+        elif target == "spearman":
+            score = spearmanr(subvalidy, y_pred)[0]
+        else:
+            raise RuntimeError("Unsupported score requested from hyperparameter "
+                    "tuning function.")
         results.append(score)
 
     return np.mean(results)
