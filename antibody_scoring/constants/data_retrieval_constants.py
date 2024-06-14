@@ -8,6 +8,3 @@ DESAUTELS_DATASET = "https://www.biorxiv.org/content/biorxiv/early/2020/04/10/20
 LOCAL_DESAUTELS_PATH = ["biorxiv_paper"]
 
 IL6_DATASET = "https://zenodo.org/records/7935862/files/il6_aai_dataset.csv?download=1"
-
-PGYM_DMS_INDELS = "https://marks.hms.harvard.edu/proteingym/DMS_ProteinGym_indels.zip"
-PGYM_DMS_SUBS = "https://marks.hms.harvard.edu/proteingym/DMS_ProteinGym_substitutions.zip"

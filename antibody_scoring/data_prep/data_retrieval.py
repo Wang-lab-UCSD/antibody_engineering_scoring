@@ -97,23 +97,3 @@ def retrieve_il6_dataset(project_dir):
     os.chdir("il6")
     _ = wget.download(DRC.IL6_DATASET)
     os.chdir(current_dir)
-
-
-def retrieve_protein_gym_dms_substitutions(project_dir):
-    """Retrieves the dms substitutions dataset from protein gym."""
-    current_dir = os.getcwd()
-    filename = wget.download(DRC.PGYM_DMS_SUBS)
-    with zipfile.ZipFile(filename, 'r') as zip_ref:
-        zip_ref.extractall(os.path.join(project_dir, "extracted_data", "protein_gym_dms_subs"))
-    os.remove(filename)
-    os.chdir(current_dir)
-
-
-def retrieve_protein_gym_dms_indels(project_dir):
-    """Retrieves the dms substitutions dataset from protein gym."""
-    current_dir = os.getcwd()
-    filename = wget.download(DRC.PGYM_DMS_INDELS)
-    with zipfile.ZipFile(filename, 'r') as zip_ref:
-        zip_ref.extractall(os.path.join(project_dir, "extracted_data", "protein_gym_dms_indels"))
-    os.remove(filename)
-    os.chdir(current_dir)
