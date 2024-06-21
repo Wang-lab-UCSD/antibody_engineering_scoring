@@ -15,7 +15,7 @@ def mason_eval(project_dir):
     cdr_seqs, yvalues = preprocess_mason(project_dir)
 
     #xgboost_eval(project_dir, cdr_seqs, yvalues, pchem_prop)
-    catmix_eval(project_dir, cdr_seqs, yvalues, IntegerEncoder())
+    #catmix_eval(project_dir, cdr_seqs, yvalues, IntegerEncoder())
 
 
 

@@ -20,14 +20,15 @@ def engelhart_eval(project_dir):
     catmix_eval(project_dir, fixed_len_seqs, yvalues,
                 IntegerEncoder())
 
-    #xgpr_conv1drbf_eval(project_dir, seq_unaligned, np.array(seq_lengths),
+    #xgpr_eval(project_dir, seq_unaligned, np.array(seq_lengths),
     #        yvalues, ohenc)
-    #xgpr_conv1drbf_eval(project_dir, seq_unaligned, np.array(seq_lengths),
+    #xgpr_eval(project_dir, seq_unaligned, np.array(seq_lengths),
     #        yvalues, pfaenc)
 
 
 
-def xgpr_conv1drbf_eval(project_dir, seq_unaligned, slengths, yvalues, encoder):
+def xgpr_eval(project_dir, seq_unaligned, slengths, yvalues, encoder,
+                        kernel="Conv1dRBF"):
     """Runs train-test split evaluations."""
     xvalues = encoder.encode_variable_length(seq_unaligned).astype(np.float32)
 
@@ -35,11 +36,11 @@ def xgpr_conv1drbf_eval(project_dir, seq_unaligned, slengths, yvalues, encoder):
 
     for i in range(5):
         timestamp = time.time()
-        trainx, trainy, trainlen, testx, testy, testlen = get_tt_split(xvalues, yvalues, i,
-                slengths)
+        trainx, trainy, trainlen, testx, testy, testlen = get_tt_split(xvalues,
+                yvalues, i, slengths)
 
         regdata = build_regression_dataset(trainx, trainy, trainlen, chunk_size=2000)
-        xgp = xGPRegression(num_rffs = 2048, variance_rffs = 12, kernel_choice = "Conv1dRBF",
+        xgp = xGPRegression(num_rffs = 2048, variance_rffs = 12, kernel_choice = kernel,
                 kernel_settings = {"intercept":True, "conv_width":9,
                     "averaging":"sqrt"}, device="gpu")
 
@@ -50,7 +51,6 @@ def xgpr_conv1drbf_eval(project_dir, seq_unaligned, slengths, yvalues, encoder):
         xgp.num_rffs = 16384
         xgp.fit(regdata, suppress_var = True)
         fit_times.append(time.time() - timestamp)
-        time.sleep(4)
 
         preds = xgp.predict(testx, testlen)
         r2_scores.append(r2_score(testy, preds))
@@ -60,9 +60,10 @@ def xgpr_conv1drbf_eval(project_dir, seq_unaligned, slengths, yvalues, encoder):
         auc_roc_scores.append(roc_auc_score(valcat, preds))
         auc_prc_scores.append(average_precision_score(valcat, preds))
 
-    write_res_to_file(project_dir, "barton", "xGPR_Conv1dRBF", type(encoder).__name__,
+    write_res_to_file(project_dir, "barton", f"xGPR_{kernel}", type(encoder).__name__,
             r2_scores = r2_scores, auc_roc_scores = auc_roc_scores,
             auc_prc_scores = auc_prc_scores, fit_times = fit_times)
+
 
 
 
@@ -71,7 +72,8 @@ def xgboost_eval(project_dir, fixed_len_seqs, yvalues,
         encoder):
     """Runs train-test split evaluations."""
     xvalues = encoder.encode_variable_length(fixed_len_seqs)
-    xvalues = xvalues.reshape((xvalues.shape[0], xvalues.shape[1] * xvalues.shape[2]))
+    if len(xvalues).shape > 2:
+        xvalues = xvalues.reshape((xvalues.shape[0], xvalues.shape[1] * xvalues.shape[2]))
 
     auc_roc_scores, auc_prc_scores, r2_scores, fit_times = [], [], [], []
 
