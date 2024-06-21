@@ -17,8 +17,8 @@ def engelhart_eval(project_dir):
             preprocess_engelhart(project_dir, False)
 
     #xgboost_eval(project_dir, fixed_len_seqs, yvalues, pchem)
-    catmix_eval(project_dir, fixed_len_seqs, yvalues,
-                IntegerEncoder())
+    #catmix_eval(project_dir, fixed_len_seqs, yvalues,
+    #            IntegerEncoder())
 
     #xgpr_conv1drbf_eval(project_dir, seq_unaligned, np.array(seq_lengths),
     #        yvalues, ohenc)
