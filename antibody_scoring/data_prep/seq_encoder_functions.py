@@ -1,5 +1,6 @@
 """Contains tools for encoding the input sequences."""
 import numpy as np
+import ablang
 from ..constants import seq_encoding_constants
 from ..protein_tools.pfasum_matrices import PFASUM90_standardized
 
@@ -134,3 +135,19 @@ class PChemPropEncoder():
 
         encoded_sequences = np.stack(encoded_sequences)
         return encoded_sequences
+
+
+class AbLangEncoder():
+    """Encodes antibody sequences using AbLang."""
+
+    def __init__(self):
+        self.heavy_ablang = ablang.pretrained("heavy", device="cuda")
+        self.heavy_ablang.freeze()
+        self.light_ablang = ablang.pretrained("light", device="cuda")
+        self.light_ablang.freeze()
+
+
+    def encode(self, sequences):
+        """Returns the averaged reps corresponding to the sequence."""
+        rescodings = self.heavy_ablang(sequences, mode='rescoding')
+        return np.stack(rescodings)
