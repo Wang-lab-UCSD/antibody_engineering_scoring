@@ -6,31 +6,37 @@ from xgboost import XGBRegressor
 from xGPR import xGPRegression, build_regression_dataset
 import numpy as np
 from ..data_prep.data_processing import preprocess_engelhart
-from ..data_prep.seq_encoder_functions import OneHotEncoder, PFAStandardEncoder, PChemPropEncoder, IntegerEncoder
+from ..data_prep.seq_encoder_functions import OneHotEncoder, PFAStandardEncoder, PChemPropEncoder
+from ..data_prep.seq_encoder_functions import IntegerEncoder, AbLangEncoder
 from .shared_eval_funcs import optuna_regression, write_res_to_file, build_bayes_classifier
 
 
 def engelhart_eval(project_dir):
     """Runs the evals for the Engelhart dataset for both xgpr and xgboost."""
-    pchem, ohenc, pfaenc = PChemPropEncoder(), OneHotEncoder(), PFAStandardEncoder()
     fixed_len_seqs, yvalues, _, _, seq_unaligned, seq_lengths = \
             preprocess_engelhart(project_dir, False)
 
-    #xgboost_eval(project_dir, fixed_len_seqs, yvalues, pchem)
+    #xgboost_eval(project_dir, fixed_len_seqs, yvalues,
+    #            PChemPropEncoder())
     #catmix_eval(project_dir, fixed_len_seqs, yvalues,
     #            IntegerEncoder())
 
     #xgpr_eval(project_dir, seq_unaligned, np.array(seq_lengths),
-    #        yvalues, ohenc)
+    #        yvalues, OneHotEncoder())
     #xgpr_eval(project_dir, seq_unaligned, np.array(seq_lengths),
-    #        yvalues, pfaenc)
+    #        yvalues, PFAStandardEncoder())
+    xgboost_eval(project_dir, seq_unaligned, yvalues,
+            AbLangEncoder())
 
 
 
 def xgpr_eval(project_dir, seq_unaligned, slengths, yvalues, encoder,
                         kernel="Conv1dRBF"):
     """Runs train-test split evaluations."""
-    xvalues = encoder.encode_variable_length(seq_unaligned).astype(np.float32)
+    if isinstance(encoder, AbLangEncoder):
+        xvalues = encoder.encode_variable_length(seq_unaligned, "both").astype(np.float32)
+    else:
+        xvalues = encoder.encode_variable_length(seq_unaligned).astype(np.float32)
 
     auc_roc_scores, auc_prc_scores, r2_scores, fit_times = [], [], [], []
 
@@ -39,7 +45,11 @@ def xgpr_eval(project_dir, seq_unaligned, slengths, yvalues, encoder,
         trainx, trainy, trainlen, testx, testy, testlen = get_tt_split(xvalues,
                 yvalues, i, slengths)
 
-        regdata = build_regression_dataset(trainx, trainy, trainlen, chunk_size=2000)
+        if "Conv" in kernel:
+            regdata = build_regression_dataset(trainx, trainy, trainlen, chunk_size=2000)
+        else:
+            regdata = build_regression_dataset(trainx, trainy, chunk_size=2000)
+
         xgp = xGPRegression(num_rffs = 2048, variance_rffs = 12, kernel_choice = kernel,
                 kernel_settings = {"intercept":True, "conv_width":9,
                     "averaging":"sqrt"}, device="gpu")
@@ -52,7 +62,11 @@ def xgpr_eval(project_dir, seq_unaligned, slengths, yvalues, encoder,
         xgp.fit(regdata, suppress_var = True)
         fit_times.append(time.time() - timestamp)
 
-        preds = xgp.predict(testx, testlen)
+        if "Conv" in kernel:
+            preds = xgp.predict(testx, testlen)
+        else:
+            preds = xgp.predict(testx)
+
         r2_scores.append(r2_score(testy, preds))
         valcat = testy.copy()
         valcat[valcat<=3]=0
@@ -68,10 +82,13 @@ def xgpr_eval(project_dir, seq_unaligned, slengths, yvalues, encoder,
 
 
 
-def xgboost_eval(project_dir, fixed_len_seqs, yvalues,
+def xgboost_eval(project_dir, input_seqs, yvalues,
         encoder):
     """Runs train-test split evaluations."""
-    xvalues = encoder.encode_variable_length(fixed_len_seqs)
+    if isinstance(encoder, AbLangEncoder):
+        xvalues = encoder.encode_variable_length(input_seqs, "both")
+    else:
+        xvalues = encoder.encode_variable_length(input_seqs)
     if len(xvalues).shape > 2:
         xvalues = xvalues.reshape((xvalues.shape[0], xvalues.shape[1] * xvalues.shape[2]))
 

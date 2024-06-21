@@ -1,6 +1,8 @@
 """Contains tools for encoding the input sequences."""
+import time
 import numpy as np
 import ablang
+from antpack import SingleChainAnnotator
 from ..constants import seq_encoding_constants
 from ..protein_tools.pfasum_matrices import PFASUM90_standardized
 
@@ -145,9 +147,65 @@ class AbLangEncoder():
         self.heavy_ablang.freeze()
         self.light_ablang = ablang.pretrained("light", device="cuda")
         self.light_ablang.freeze()
+        self.light_num_tool = SingleChainAnnotator(chains=["K", "L"], scheme="imgt")
+        self.heavy_num_tool = SingleChainAnnotator(chains=["H"], scheme="imgt")
 
 
-    def encode(self, sequences):
+    def encode_variable_length(self, sequences, seq_type = "heavy"):
         """Returns the averaged reps corresponding to the sequence."""
-        rescodings = self.heavy_ablang(sequences, mode='rescoding')
+        if seq_type == "heavy":
+            rescodings = self.gen_codings(sequences, self.heavy_ablang)
+        elif seq_type == "light":
+            rescodings = self.gen_codings(sequences, self.light_ablang)
+
+        elif seq_type == "both":
+            light_seqs, heavy_seqs = [], []
+            for seq in sequences:
+                light_anal = self.light_num_tool.analyze_seq(seq)
+                heavy_anal = self.heavy_num_tool.analyze_seq(seq)
+                if light_anal[1] < 0.8 or heavy_anal[1] < 0.8:
+                    raise RuntimeError("Expected both heavy and light chains in each "
+                            "sequence but found a sequence that may have only one of the "
+                            "two.")
+                light_seqs.append(self.get_var_region(seq, light_anal))
+                heavy_seqs.append(self.get_var_region(seq, heavy_anal))
+
+            rescodings = self.gen_codings(heavy_seqs, self.heavy_ablang)
+            rescodings_l = self.gen_codings(light_seqs, self.light_ablang)
+            rescodings = np.hstack([rescodings, rescodings_l])
+
+        else:
+            raise RuntimeError("Unexpected sequence type supplied to sequence encoder.")
+
         return np.stack(rescodings)
+
+
+    def gen_codings(self, sequences, model):
+        """Generates the encodings in batches to avoid any possible memory
+        issues."""
+        codings = []
+        for i in range(0, len(sequences), 250):
+            codings.append(model(sequences[i:i+250], mode="seqcoding"))
+            time.sleep(0.01)
+
+        return np.vstack(codings)
+
+
+    def get_var_region(self, sequence, seq_anal):
+        """Returns the variable region based on the supplied numbering."""
+        for i, s in enumerate(seq_anal[0]):
+            if s != "-":
+                break
+
+        start_pt = i
+
+        for i, s in enumerate(reversed(seq_anal[0])):
+            if s != "-":
+                break
+
+        if i == 0:
+            end_pt = len(seq_anal[0])
+        else:
+            end_pt = -i
+
+        return sequence[start_pt:end_pt]
