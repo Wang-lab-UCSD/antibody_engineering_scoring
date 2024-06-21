@@ -7,7 +7,7 @@ from xgboost import XGBClassifier
 import numpy as np
 from ..data_prep.data_processing import preprocess_cognano
 from ..data_prep.seq_encoder_functions import PChemPropEncoder
-from .shared_eval_funcs import optuna_classification_target_f1, write_res_to_file
+from .shared_eval_funcs import optuna_classification, write_res_to_file
 
 
 def cognano_eval(project_dir):
@@ -45,7 +45,7 @@ def xgboost_eval(project_dir, train_data, test_data, encoder):
         sampler = optuna.samplers.TPESampler(seed=i)
         study = optuna.create_study(sampler=sampler, direction='maximize')
         study.optimize(lambda trial: optuna_classification_target_f1(trial, trainx,
-            trainy), n_trials=100)
+            trainy, target="f1"), n_trials=100)
         trial = study.best_trial
         params = trial.params
         params["random_state"] = i

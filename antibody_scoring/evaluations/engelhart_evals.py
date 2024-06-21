@@ -6,8 +6,8 @@ from xgboost import XGBRegressor
 from xGPR import xGPRegression, build_regression_dataset
 import numpy as np
 from ..data_prep.data_processing import preprocess_engelhart
-from ..data_prep.seq_encoder_functions import OneHotEncoder, PFAStandardEncoder, PChemPropEncoder
-from .shared_eval_funcs import optuna_regression, write_res_to_file
+from ..data_prep.seq_encoder_functions import OneHotEncoder, PFAStandardEncoder, PChemPropEncoder, IntegerEncoder
+from .shared_eval_funcs import optuna_regression, write_res_to_file, build_bayes_classifier
 
 
 def engelhart_eval(project_dir):
@@ -16,12 +16,14 @@ def engelhart_eval(project_dir):
     fixed_len_seqs, yvalues, _, _, seq_unaligned, seq_lengths = \
             preprocess_engelhart(project_dir, False)
 
-    xgboost_eval(project_dir, fixed_len_seqs, yvalues, pchem)
+    #xgboost_eval(project_dir, fixed_len_seqs, yvalues, pchem)
+    catmix_eval(project_dir, fixed_len_seqs, yvalues,
+                IntegerEncoder())
 
-    xgpr_conv1drbf_eval(project_dir, seq_unaligned, np.array(seq_lengths),
-            yvalues, ohenc)
-    xgpr_conv1drbf_eval(project_dir, seq_unaligned, np.array(seq_lengths),
-            yvalues, pfaenc)
+    #xgpr_conv1drbf_eval(project_dir, seq_unaligned, np.array(seq_lengths),
+    #        yvalues, ohenc)
+    #xgpr_conv1drbf_eval(project_dir, seq_unaligned, np.array(seq_lengths),
+    #        yvalues, pfaenc)
 
 
 
@@ -99,6 +101,41 @@ def xgboost_eval(project_dir, fixed_len_seqs, yvalues,
     write_res_to_file(project_dir, "barton", "XGBoost", type(encoder).__name__,
             r2_scores = r2_scores, auc_roc_scores = auc_roc_scores,
             auc_prc_scores = auc_prc_scores, fit_times = fit_times)
+
+
+
+def catmix_eval(project_dir, fixed_len_seqs, yvalues,
+        encoder):
+    """Trains a mixture of categorical distributions on both
+    positives and negatives; uses a simple Bayes' classifier.
+    Should only be used with the integer encoder."""
+    xvalues = encoder.encode(fixed_len_seqs)
+    variable_idx = np.where(np.array([np.unique(xvalues[:,i]).shape[0] for i in
+            range(xvalues.shape[1])]) > 1)[0]
+    xvalues = xvalues[:,variable_idx]
+    ycat = yvalues.copy()
+    ycat[ycat<=3]=0
+    ycat[ycat>3]=1
+
+    auc_roc_scores, auc_prc_scores, r2_scores, fit_times = [], [], [], []
+
+    for i in range(5):
+        timestamp = time.time()
+        trainx, trainy, testx, testy = get_tt_split(xvalues, ycat, i)
+
+        preds = build_bayes_classifier(trainx, trainy,
+                testx, use_aic = False, num_possible_items = 21)
+
+        fit_times.append(time.time() - timestamp)
+
+        auc_roc_scores.append(roc_auc_score(testy, preds))
+        auc_prc_scores.append(average_precision_score(testy, preds))
+
+    write_res_to_file(project_dir, "barton", "BayesCatmix", type(encoder).__name__,
+            r2_scores = r2_scores, auc_roc_scores = auc_roc_scores,
+            auc_prc_scores = auc_prc_scores, fit_times = fit_times)
+
+
 
 
 def get_tt_split(xdata, ydata, random_seed, slengths = None):

@@ -6,15 +6,18 @@ from sklearn.metrics import average_precision_score, roc_auc_score
 from xgboost import XGBClassifier
 import numpy as np
 from ..data_prep.data_processing import preprocess_il6
-from ..data_prep.seq_encoder_functions import PChemPropEncoder
-from .shared_eval_funcs import optuna_classification_target_prc, write_res_to_file
+from ..data_prep.seq_encoder_functions import PChemPropEncoder, IntegerEncoder
+from .shared_eval_funcs import build_bayes_classifier
+from .shared_eval_funcs import optuna_classification
+from .shared_eval_funcs import write_res_to_file
 
 
 def il6_eval(project_dir):
     """Runs the evals for the Cognano dataset for xgboost."""
     filtered_seqs = preprocess_il6(project_dir)
 
-    xgboost_eval(project_dir, filtered_seqs, PChemPropEncoder())
+    #xgboost_eval(project_dir, filtered_seqs, PChemPropEncoder())
+    catmix_eval(project_dir, filtered_seqs, IntegerEncoder())
 
 
 
@@ -31,8 +34,8 @@ def xgboost_eval(project_dir, filtered_seqs, encoder):
 
         sampler = optuna.samplers.TPESampler(seed=123)
         study = optuna.create_study(sampler=sampler, direction='maximize')
-        study.optimize(lambda trial: optuna_classification_target_prc(trial, trainx,
-            trainy), n_trials=100)
+        study.optimize(lambda trial: optuna_classification(trial, trainx,
+            trainy, target="prc"), n_trials=100)
         trial = study.best_trial
         params = trial.params
         xgboost_model = XGBClassifier(**params)
@@ -50,6 +53,40 @@ def xgboost_eval(project_dir, filtered_seqs, encoder):
     write_res_to_file(project_dir, "IL6", "XGBoost", type(encoder).__name__,
             fit_times = fit_times, auc_prc_scores = prc_scores,
             auc_roc_scores = auc_roc_scores)
+
+
+
+def catmix_eval(project_dir, filtered_seqs, encoder):
+    """Trains a mixture of categorical distributions on both
+    positives and negatives; uses a simple Bayes' classifier.
+    Should only be used with the integer encoder."""
+    fit_times, prc_scores, auc_roc_scores = [], [], []
+
+    for i in range(5):
+        trainx, testx, trainy, testy = build_traintest_set(filtered_seqs, i,
+                num_desired = 1636, encoder = encoder)
+
+        stacked_data = np.vstack([trainx, testx])
+        variable_idx = np.where(np.array([np.unique(stacked_data[:,i]).shape[0] for i in
+            range(stacked_data.shape[1])]) > 1)[0]
+        trainx, testx = trainx[:,variable_idx].copy(), testx[:,variable_idx].copy()
+
+        timestamp = time.time()
+        probs = build_bayes_classifier(trainx, trainy,
+                testx, use_aic = False, num_possible_items = 21)
+
+        fit_times.append(time.time() - timestamp)
+
+        prc_scores.append(average_precision_score(testy, probs))
+        auc_roc_scores.append(roc_auc_score(testy, probs))
+
+        print(f"****\n{prc_scores[-1]}\n******")
+
+    write_res_to_file(project_dir, "IL6", "BayesCatmix", type(encoder).__name__,
+            fit_times = fit_times, auc_prc_scores = prc_scores,
+            auc_roc_scores = auc_roc_scores)
+
+
 
 
 def build_traintest_set(filtered_data, random_seed, num_desired,
@@ -88,7 +125,8 @@ def build_traintest_set(filtered_data, random_seed, num_desired,
         raise RuntimeError("Error in seq processing.")
 
     all_y = np.array(retained_labels)
-    all_x = encoder.encode_variable_length(retained_seqs)
+    all_x = encoder.encode(retained_seqs)
+
     if len(all_x.shape) > 2:
         all_x = all_x.reshape((all_x.shape[0], all_x.shape[1] *
             all_x.shape[2]))

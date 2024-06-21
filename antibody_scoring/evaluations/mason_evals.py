@@ -5,8 +5,8 @@ from sklearn.metrics import roc_auc_score, average_precision_score
 from xgboost import XGBClassifier
 import numpy as np
 from ..data_prep.data_processing import preprocess_mason
-from ..data_prep.seq_encoder_functions import PChemPropEncoder
-from .shared_eval_funcs import optuna_classification, write_res_to_file
+from ..data_prep.seq_encoder_functions import PChemPropEncoder, IntegerEncoder
+from .shared_eval_funcs import optuna_classification, write_res_to_file, build_bayes_classifier
 
 
 def mason_eval(project_dir):
@@ -14,7 +14,8 @@ def mason_eval(project_dir):
     pchem_prop = PChemPropEncoder()
     cdr_seqs, yvalues = preprocess_mason(project_dir)
 
-    xgboost_eval(project_dir, cdr_seqs, yvalues, pchem_prop)
+    #xgboost_eval(project_dir, cdr_seqs, yvalues, pchem_prop)
+    catmix_eval(project_dir, cdr_seqs, yvalues, IntegerEncoder())
 
 
 
@@ -48,6 +49,33 @@ def xgboost_eval(project_dir, fixed_len_seqs, yvalues,
     write_res_to_file(project_dir, "mason", "XGBoost", type(encoder).__name__,
             auc_roc_scores = auc_roc_scores, auc_prc_scores = auc_prc_scores,
             fit_times = fit_times)
+
+
+
+def catmix_eval(project_dir, fixed_len_seqs, yvalues, encoder):
+    """Trains a mixture of categorical distributions on both
+    positives and negatives; uses a simple Bayes' classifier.
+    Should only be used with the integer encoder."""
+    xvalues = encoder.encode(fixed_len_seqs)
+
+    auc_roc_scores, auc_prc_scores, fit_times = [], [], []
+
+    for i in range(5):
+        timestamp = time.time()
+        trainx, trainy, testx, testy = get_tt_split(xvalues, yvalues, i)
+        preds = build_bayes_classifier(trainx, trainy,
+                testx, use_aic = False, num_possible_items = 21)
+
+        fit_times.append(time.time() - timestamp)
+
+        auc_roc_scores.append(roc_auc_score(testy, preds))
+        auc_prc_scores.append(average_precision_score(testy, preds))
+
+    write_res_to_file(project_dir, "mason", "BayesCatmix", type(encoder).__name__,
+            auc_roc_scores = auc_roc_scores, auc_prc_scores = auc_prc_scores,
+            fit_times = fit_times)
+
+
 
 
 def get_tt_split(xdata, ydata, random_seed):

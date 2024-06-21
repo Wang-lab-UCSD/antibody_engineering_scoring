@@ -41,6 +41,26 @@ class OneHotEncoder():
         encoded_sequences = np.stack(encoded_sequences)
         return encoded_sequences
 
+class IntegerEncoder():
+    """Encodes amino acid sequences as integers -- very lightweight
+    and enables us to work with large datasets in memory. Should only
+    be used with LightGBM and with sequences that are all the same
+    length."""
+
+    def __init__(self):
+        self.aa_dict = {seq_encoding_constants.aas[i]:i for i
+                in range(len(seq_encoding_constants.aas))}
+
+    def encode(self, sequences):
+        """Encodes the input sequences as a 2d array."""
+        encoded_sequences = []
+        for sequence in sequences:
+            encoded_seq = np.array([self.aa_dict[letter] for letter in sequence],
+                                   dtype=np.uint8)
+            encoded_sequences.append(encoded_seq)
+
+        encoded_sequences = np.stack(encoded_sequences)
+        return encoded_sequences
 
 
 
