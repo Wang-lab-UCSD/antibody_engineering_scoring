@@ -177,7 +177,7 @@ class AbLangEncoder():
         else:
             raise RuntimeError("Unexpected sequence type supplied to sequence encoder.")
 
-        return np.stack(rescodings)
+        return rescodings
 
 
     def gen_codings(self, sequences, model):
@@ -209,3 +209,26 @@ class AbLangEncoder():
             end_pt = -i
 
         return sequence[start_pt:end_pt]
+
+
+    def encode_mason_data(self, sequences):
+        """The Mason dataset is a little 'special' in the sense
+        that only the CDR is supplied. To generate an embedding
+        we need to tack the rest of the sequence at the front and
+        back back onto the CDR, then remove the parts of the embedding
+        that do not correspond to the CDR."""
+        front_add = "EVQLVESGGGLVQPGGSLRLSCAASGFNIKDTYIHWVRQAPGKGLEWVARIYPTNGYTRYADSVKGRFTISADTSKNTAYLQMNSLRAEDTAVYYCSR"
+        rear_add = "YWGQGTLVTVSS"
+
+        aug_sequences = ["".join([front_add, s, rear_add]) for s
+                         in sequences]
+
+        codings = []
+        for i in range(0, len(sequences), 250):
+            coding = self.heavy_ablang(aug_sequences[i:i+250], mode="rescoding")
+            coding = np.stack(coding)
+            time.sleep(0.01)
+            coding = coding[:,98:108,:].mean(axis=1)
+            codings.append(coding)
+
+        return np.vstack(codings)

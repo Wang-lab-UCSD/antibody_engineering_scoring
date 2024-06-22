@@ -361,5 +361,4 @@ def preprocess_il6(project_dir):
             filtered_arr[:] = 0
 
         filtered_seqs[prepped_seq] = filtered_arr
-
     return filtered_seqs
