@@ -6,7 +6,7 @@ from sklearn.metrics import average_precision_score, roc_auc_score
 from xgboost import XGBClassifier
 import numpy as np
 from ..data_prep.data_processing import preprocess_il6
-from ..data_prep.seq_encoder_functions import PChemPropEncoder, IntegerEncoder
+from ..data_prep.seq_encoder_functions import PChemPropEncoder, IntegerEncoder, AbLangEncoder
 from .shared_eval_funcs import build_bayes_classifier
 from .shared_eval_funcs import optuna_classification
 from .shared_eval_funcs import write_res_to_file
@@ -17,7 +17,8 @@ def il6_eval(project_dir):
     filtered_seqs = preprocess_il6(project_dir)
 
     #xgboost_eval(project_dir, filtered_seqs, PChemPropEncoder())
-    catmix_eval(project_dir, filtered_seqs, IntegerEncoder())
+    #catmix_eval(project_dir, filtered_seqs, IntegerEncoder())
+    xgboost_eval(project_dir, filtered_seqs, AbLangEncoder())
 
 
 
@@ -125,7 +126,11 @@ def build_traintest_set(filtered_data, random_seed, num_desired,
         raise RuntimeError("Error in seq processing.")
 
     all_y = np.array(retained_labels)
-    all_x = encoder.encode(retained_seqs)
+    if isinstance(encoder, AbLangEncoder):
+        retained_seqs = [s.replace("-", "") for s in retained_seqs]
+        all_x = encoder.encode_variable_length(retained_seqs, "heavy")
+    else:
+        all_x = encoder.encode(retained_seqs)
 
     if len(all_x.shape) > 2:
         all_x = all_x.reshape((all_x.shape[0], all_x.shape[1] *

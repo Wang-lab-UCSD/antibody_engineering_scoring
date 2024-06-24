@@ -25,8 +25,10 @@ def engelhart_eval(project_dir):
     #        yvalues, OneHotEncoder())
     #xgpr_eval(project_dir, seq_unaligned, np.array(seq_lengths),
     #        yvalues, PFAStandardEncoder())
-    xgboost_eval(project_dir, seq_unaligned, yvalues,
-            AbLangEncoder())
+    #xgboost_eval(project_dir, seq_unaligned, yvalues,
+    #        AbLangEncoder())
+    xgpr_eval(project_dir, seq_unaligned, np.array(seq_lengths),
+            yvalues, AbLangEncoder(), "RBF")
 
 
 
@@ -89,7 +91,7 @@ def xgboost_eval(project_dir, input_seqs, yvalues,
         xvalues = encoder.encode_variable_length(input_seqs, "both")
     else:
         xvalues = encoder.encode_variable_length(input_seqs)
-    if len(xvalues).shape > 2:
+    if len(xvalues.shape) > 2:
         xvalues = xvalues.reshape((xvalues.shape[0], xvalues.shape[1] * xvalues.shape[2]))
 
     auc_roc_scores, auc_prc_scores, r2_scores, fit_times = [], [], [], []

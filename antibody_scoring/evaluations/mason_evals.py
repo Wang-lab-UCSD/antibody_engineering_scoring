@@ -5,25 +5,28 @@ from sklearn.metrics import roc_auc_score, average_precision_score
 from xgboost import XGBClassifier
 import numpy as np
 from ..data_prep.data_processing import preprocess_mason
-from ..data_prep.seq_encoder_functions import PChemPropEncoder, IntegerEncoder
+from ..data_prep.seq_encoder_functions import PChemPropEncoder, IntegerEncoder, AbLangEncoder
 from .shared_eval_funcs import optuna_classification, write_res_to_file, build_bayes_classifier
 
 
 def mason_eval(project_dir):
     """Runs the evals for the Mason dataset for xgboost."""
-    pchem_prop = PChemPropEncoder()
     cdr_seqs, yvalues = preprocess_mason(project_dir)
 
-    #xgboost_eval(project_dir, cdr_seqs, yvalues, pchem_prop)
+    #xgboost_eval(project_dir, cdr_seqs, yvalues, PChemPropEncoder)
     #catmix_eval(project_dir, cdr_seqs, yvalues, IntegerEncoder())
+    xgboost_eval(project_dir, cdr_seqs, yvalues, AbLangEncoder())
 
 
 
 def xgboost_eval(project_dir, fixed_len_seqs, yvalues,
         encoder):
     """Runs train-test split evaluations."""
-    xvalues = encoder.encode_variable_length(fixed_len_seqs)
-    xvalues = xvalues.reshape((xvalues.shape[0], xvalues.shape[1] * xvalues.shape[2]))
+    if isinstance(encoder, AbLangEncoder):
+        xvalues = encoder.encode_mason_data(fixed_len_seqs)
+    else:
+        xvalues = encoder.encode_variable_length(fixed_len_seqs)
+        xvalues = xvalues.reshape((xvalues.shape[0], xvalues.shape[1] * xvalues.shape[2]))
 
     auc_roc_scores, auc_prc_scores, fit_times = [], [], []
 
@@ -33,7 +36,8 @@ def xgboost_eval(project_dir, fixed_len_seqs, yvalues,
 
         sampler = optuna.samplers.TPESampler(seed=123)
         study = optuna.create_study(sampler=sampler, direction='maximize')
-        study.optimize(lambda trial: optuna_classification(trial, trainx, trainy), n_trials=100)
+        study.optimize(lambda trial: optuna_classification(trial,
+                                        trainx, trainy), n_trials=100)
         trial = study.best_trial
         params = trial.params
         xgboost_model = XGBClassifier(**params)
