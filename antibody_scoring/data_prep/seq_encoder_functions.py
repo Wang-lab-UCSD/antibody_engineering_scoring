@@ -186,7 +186,6 @@ class AbLangEncoder():
         codings = []
         for i in range(0, len(sequences), 250):
             codings.append(model(sequences[i:i+250], mode="seqcoding"))
-            time.sleep(0.01)
 
         return np.vstack(codings)
 
