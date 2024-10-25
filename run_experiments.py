@@ -43,9 +43,9 @@ def get_raw_data(project_dir):
     datasets which are not included)."""
     os.chdir(project_dir)
     dataretr.retrieve_engelhart_dataset(project_dir)
-    #dataretr.retrieve_desautels_dataset(project_dir)
+    dataretr.retrieve_desautels_dataset(project_dir)
     dataretr.retrieve_mason_dataset(project_dir)
-    #dataretr.retrieve_cognano_dataset(project_dir)
+    dataretr.retrieve_cognano_dataset(project_dir)
     dataretr.retrieve_il6_dataset(project_dir)
 
 
