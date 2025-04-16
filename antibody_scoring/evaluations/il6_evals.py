@@ -3,11 +3,11 @@ import time
 import random
 import optuna
 from sklearn.metrics import average_precision_score, roc_auc_score
+from xGPR import xGPDiscriminant, build_classification_dataset, cv_tune_classifier_optuna
 from xgboost import XGBClassifier
 import numpy as np
 from ..data_prep.data_processing import preprocess_il6
-from ..data_prep.seq_encoder_functions import PChemPropEncoder, IntegerEncoder, AbLangEncoder
-from .shared_eval_funcs import build_bayes_classifier
+from ..data_prep.seq_encoder_functions import PChemPropEncoder, PFAStandardEncoder
 from .shared_eval_funcs import optuna_classification
 from .shared_eval_funcs import write_res_to_file
 
@@ -17,8 +17,8 @@ def il6_eval(project_dir):
     filtered_seqs = preprocess_il6(project_dir)
 
     #xgboost_eval(project_dir, filtered_seqs, PChemPropEncoder())
-    #catmix_eval(project_dir, filtered_seqs, IntegerEncoder())
-    xgboost_eval(project_dir, filtered_seqs, AbLangEncoder())
+    xgpr_discriminant_eval(project_dir, filtered_seqs,
+            PFAStandardEncoder("raw"))
 
 
 
@@ -28,7 +28,7 @@ def xgboost_eval(project_dir, filtered_seqs, encoder):
     fit_times, prc_scores, auc_roc_scores = [], [], []
 
     for i in range(5):
-        trainx, testx, trainy, testy = build_traintest_set(filtered_seqs, i,
+        trainx, testx, trainy, testy, _, _ = build_traintest_set(filtered_seqs, i,
                 num_desired = 1636, encoder = encoder)
 
         timestamp = time.time()
@@ -37,9 +37,7 @@ def xgboost_eval(project_dir, filtered_seqs, encoder):
         study = optuna.create_study(sampler=sampler, direction='maximize')
         study.optimize(lambda trial: optuna_classification(trial, trainx,
             trainy, target="prc"), n_trials=100)
-        trial = study.best_trial
-        params = trial.params
-        xgboost_model = XGBClassifier(**params)
+        xgboost_model = XGBClassifier(**study.best_trial.params)
         xgboost_model.fit(trainx, trainy)
 
         fit_times.append(time.time() - timestamp)
@@ -56,34 +54,41 @@ def xgboost_eval(project_dir, filtered_seqs, encoder):
             auc_roc_scores = auc_roc_scores)
 
 
-
-def catmix_eval(project_dir, filtered_seqs, encoder):
-    """Trains a mixture of categorical distributions on both
-    positives and negatives; uses a simple Bayes' classifier.
-    Should only be used with the integer encoder."""
+def xgpr_discriminant_eval(project_dir, filtered_seqs, encoder):
+    """Runs train-test split evaluations."""
     fit_times, prc_scores, auc_roc_scores = [], [], []
+    ungapped_seqs = {r.replace('-', ''):s for r, s in filtered_seqs.items()}
 
     for i in range(5):
-        trainx, testx, trainy, testy = build_traintest_set(filtered_seqs, i,
-                num_desired = 1636, encoder = encoder)
-
-        stacked_data = np.vstack([trainx, testx])
-        variable_idx = np.where(np.array([np.unique(stacked_data[:,i]).shape[0] for i in
-            range(stacked_data.shape[1])]) > 1)[0]
-        trainx, testx = trainx[:,variable_idx].copy(), testx[:,variable_idx].copy()
+        trainx, testx, trainy, testy, trainlen, testlen = build_traintest_set(
+                ungapped_seqs, i, num_desired = 1636, encoder = encoder,
+                flatten=False)
 
         timestamp = time.time()
-        probs = build_bayes_classifier(trainx, trainy,
-                testx, use_aic = False, num_possible_items = 21)
+        xgp = xGPDiscriminant(num_rffs = 4096,
+                kernel_choice = "Conv1dRBF", kernel_settings =
+                    {"intercept":True, "conv_width":13,
+                    "averaging":"sqrt"}, device="cuda")
+
+        xgp, _, _ = cv_tune_classifier_optuna(trainx, trainy,
+                xgp, trainlen, fit_mode="exact", eval_metric="aucprc",
+                max_iter=50)
+        xgp.num_rffs = 16384
+        classdata = build_classification_dataset(trainx, trainy, trainlen)
+
+        xgp.fit(classdata)
+        fit_times.append(time.time() - timestamp)
+
+        preds = xgp.predict(testx, testlen)
 
         fit_times.append(time.time() - timestamp)
 
-        prc_scores.append(average_precision_score(testy, probs))
-        auc_roc_scores.append(roc_auc_score(testy, probs))
+        prc_scores.append(average_precision_score(testy, preds[:,1]))
+        auc_roc_scores.append(roc_auc_score(testy, preds[:,1]))
 
         print(f"****\n{prc_scores[-1]}\n******")
 
-    write_res_to_file(project_dir, "IL6", "BayesCatmix", type(encoder).__name__,
+    write_res_to_file(project_dir, "IL6", "xGPDiscriminant_Conv1dRBF", type(encoder).__name__,
             fit_times = fit_times, auc_prc_scores = prc_scores,
             auc_roc_scores = auc_roc_scores)
 
@@ -91,7 +96,7 @@ def catmix_eval(project_dir, filtered_seqs, encoder):
 
 
 def build_traintest_set(filtered_data, random_seed, num_desired,
-        encoder):
+        encoder, flatten=True):
     """Builds a training and test set by undersampling the negatives.
     The data prep procedure adopted by Barton et al. for this dataset
     is a little unique in some ways (very unusual criteria for datapoint
@@ -126,13 +131,10 @@ def build_traintest_set(filtered_data, random_seed, num_desired,
         raise RuntimeError("Error in seq processing.")
 
     all_y = np.array(retained_labels)
-    if isinstance(encoder, AbLangEncoder):
-        retained_seqs = [s.replace("-", "") for s in retained_seqs]
-        all_x = encoder.encode_variable_length(retained_seqs, "heavy")
-    else:
-        all_x = encoder.encode(retained_seqs)
+    all_x = encoder.encode_variable_length(retained_seqs)
+    seqlen = np.array([len(r) for r in retained_seqs])
 
-    if len(all_x.shape) > 2:
+    if len(all_x.shape) > 2 and flatten:
         all_x = all_x.reshape((all_x.shape[0], all_x.shape[1] *
             all_x.shape[2]))
 
@@ -140,5 +142,6 @@ def build_traintest_set(filtered_data, random_seed, num_desired,
             int(0.9 * num_desired)
 
     trainy, testy = all_y[:cutoff_val], all_y[cutoff_val:cutoff_test]
-    trainx, testx = all_x[:cutoff_val,:], all_x[cutoff_val:cutoff_test,:]
-    return trainx, testx, trainy, testy
+    trainx, testx = all_x[:cutoff_val,...], all_x[cutoff_val:cutoff_test,...]
+    trainlen, testlen = seqlen[:cutoff_val], seqlen[cutoff_val:cutoff_test,...]
+    return trainx, testx, trainy, testy, trainlen, testlen

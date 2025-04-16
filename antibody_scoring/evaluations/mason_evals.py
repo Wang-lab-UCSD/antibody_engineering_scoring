@@ -2,31 +2,28 @@
 import time
 import optuna
 from sklearn.metrics import roc_auc_score, average_precision_score
+from xGPR import xGPDiscriminant, build_classification_dataset, cv_tune_classifier_optuna
 from xgboost import XGBClassifier
 import numpy as np
 from ..data_prep.data_processing import preprocess_mason
-from ..data_prep.seq_encoder_functions import PChemPropEncoder, IntegerEncoder, AbLangEncoder
-from .shared_eval_funcs import optuna_classification, write_res_to_file, build_bayes_classifier
+from ..data_prep.seq_encoder_functions import PChemPropEncoder, PFAStandardEncoder
+from .shared_eval_funcs import optuna_classification, write_res_to_file
 
 
 def mason_eval(project_dir):
     """Runs the evals for the Mason dataset for xgboost."""
     cdr_seqs, yvalues = preprocess_mason(project_dir)
 
-    #xgboost_eval(project_dir, cdr_seqs, yvalues, PChemPropEncoder)
-    #catmix_eval(project_dir, cdr_seqs, yvalues, IntegerEncoder())
-    xgboost_eval(project_dir, cdr_seqs, yvalues, AbLangEncoder())
+    #xgboost_eval(project_dir, cdr_seqs, yvalues, PChemPropEncoder())
+    xgpr_discriminant_eval(project_dir, cdr_seqs, yvalues, PFAStandardEncoder("raw"))
 
 
 
 def xgboost_eval(project_dir, fixed_len_seqs, yvalues,
         encoder):
     """Runs train-test split evaluations."""
-    if isinstance(encoder, AbLangEncoder):
-        xvalues = encoder.encode_mason_data(fixed_len_seqs)
-    else:
-        xvalues = encoder.encode_variable_length(fixed_len_seqs)
-        xvalues = xvalues.reshape((xvalues.shape[0], xvalues.shape[1] * xvalues.shape[2]))
+    xvalues = encoder.encode_variable_length(fixed_len_seqs)
+    xvalues = xvalues.reshape((xvalues.shape[0], xvalues.shape[1] * xvalues.shape[2]))
 
     auc_roc_scores, auc_prc_scores, fit_times = [], [], []
 
@@ -38,9 +35,7 @@ def xgboost_eval(project_dir, fixed_len_seqs, yvalues,
         study = optuna.create_study(sampler=sampler, direction='maximize')
         study.optimize(lambda trial: optuna_classification(trial,
                                         trainx, trainy), n_trials=100)
-        trial = study.best_trial
-        params = trial.params
-        xgboost_model = XGBClassifier(**params)
+        xgboost_model = XGBClassifier(**study.best_trial.params)
         xgboost_model.fit(trainx, trainy)
 
         fit_times.append(time.time() - timestamp)
@@ -56,26 +51,35 @@ def xgboost_eval(project_dir, fixed_len_seqs, yvalues,
 
 
 
-def catmix_eval(project_dir, fixed_len_seqs, yvalues, encoder):
-    """Trains a mixture of categorical distributions on both
-    positives and negatives; uses a simple Bayes' classifier.
-    Should only be used with the integer encoder."""
-    xvalues = encoder.encode(fixed_len_seqs)
+def xgpr_discriminant_eval(project_dir, fixed_len_seqs, yvalues, encoder):
+    """Runs train-test split evaluations."""
+    xvalues = encoder.encode_variable_length(fixed_len_seqs)
+    xvalues = xvalues.reshape((xvalues.shape[0], xvalues.shape[1] * xvalues.shape[2]))
 
     auc_roc_scores, auc_prc_scores, fit_times = [], [], []
 
     for i in range(5):
         timestamp = time.time()
         trainx, trainy, testx, testy = get_tt_split(xvalues, yvalues, i)
-        preds = build_bayes_classifier(trainx, trainy,
-                testx, use_aic = False, num_possible_items = 21)
+        xgp = xGPDiscriminant(num_rffs = 4096,
+                kernel_choice = "RBF", kernel_settings =
+                    {"intercept":True, "conv_width":9,
+                    "averaging":"sqrt"}, device="cuda")
 
+        xgp, _, _ = cv_tune_classifier_optuna(trainx, trainy,
+                xgp, fit_mode="exact", eval_metric="aucprc",
+                max_iter=50)
+        xgp.num_rffs = 16384
+        classdata = build_classification_dataset(trainx, trainy)
+
+        xgp.fit(classdata)
         fit_times.append(time.time() - timestamp)
+        preds = xgp.predict(testx)
 
-        auc_roc_scores.append(roc_auc_score(testy, preds))
-        auc_prc_scores.append(average_precision_score(testy, preds))
+        auc_roc_scores.append(roc_auc_score(testy, preds[:,-1]))
+        auc_prc_scores.append(average_precision_score(testy, preds[:,-1]))
 
-    write_res_to_file(project_dir, "mason", "BayesCatmix", type(encoder).__name__,
+    write_res_to_file(project_dir, "mason", "xGPDiscriminant_RBF", type(encoder).__name__,
             auc_roc_scores = auc_roc_scores, auc_prc_scores = auc_prc_scores,
             fit_times = fit_times)
 

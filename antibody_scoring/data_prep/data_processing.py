@@ -249,7 +249,7 @@ def preprocess_cognano(project_dir):
             observed_antigens.add(ag)
             numberings.append(numbering)
 
-        datagroups[i].append(numberings)
+        datagroup.append(numberings)
 
     sorted_codes = sca.sort_position_codes([k for k in list(observed_positions) if
         k != "-"], scheme="imgt")

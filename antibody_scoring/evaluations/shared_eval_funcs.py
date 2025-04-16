@@ -167,24 +167,3 @@ def build_cat_model(train_enc, use_aic = False, num_possible_items=21):
     cat_model.fit(train_enc, n_restarts=1)
 
     return cat_model
-
-
-
-
-def build_bayes_classifier(trainx, trainy,
-        testx, use_aic = False, num_possible_items = 21):
-    """Builds a simple Bayes' classifier using two categorical mixture
-    models, one for positive examples and one for negative, then
-    returns predictions for the test set."""
-    trainx_positives = trainx[trainy==1,...]
-    trainx_negatives = trainx[trainy==0,...]
-
-    pos_model = build_cat_model(trainx_positives, use_aic = use_aic,
-                num_possible_items=num_possible_items)
-    neg_model = build_cat_model(trainx_negatives, use_aic = use_aic,
-                num_possible_items=num_possible_items)
-
-    pos_preds = np.exp(pos_model.score(testx).clip(min=-100))
-    neg_preds = np.exp(neg_model.score(testx).clip(min=-100))
-
-    return (pos_preds * 0.5) / (pos_preds * 0.5 + neg_preds * 0.5)

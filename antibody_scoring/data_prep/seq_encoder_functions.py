@@ -4,7 +4,7 @@ import numpy as np
 import ablang
 from antpack import SingleChainAnnotator
 from ..constants import seq_encoding_constants
-from ..protein_tools.pfasum_matrices import PFASUM90_standardized
+from ..protein_tools.pfasum_matrices import PFASUM90_standardized, PFASUM90_raw
 
 
 
@@ -71,11 +71,19 @@ class PFAStandardEncoder():
     """Encodes a sequence using a PFASUM (similar to BLOSUM) matrix,
     without inserting any gaps. The matrix used here has been
     standardized and undergone a Cholesky decomposition."""
-    def __init__(self):
-        aas = PFASUM90_standardized.get_aas()
-        self.aa_dict = {aas[i]:i for i
+    def __init__(self, enc_type = "standardized"):
+        if enc_type == "standardized":
+            aas = PFASUM90_standardized.get_aas()
+            self.aa_dict = {aas[i]:i for i
                 in range(len(aas))}
-        self.mat = PFASUM90_standardized.get_mat()
+            self.mat = PFASUM90_standardized.get_mat()
+        else:
+            aas = PFASUM90_raw.get_aas()
+            self.aa_dict = {aas[i]:i for i
+                in range(len(aas))}
+            self.mat = PFASUM90_raw.get_mat()
+
+
 
     def encode(self, sequences):
         """Encodes the input sequences as a 3d array."""
